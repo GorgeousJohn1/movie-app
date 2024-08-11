@@ -22,5 +22,5 @@ export default function Movies({ movieData = [], loading = false }) {
 
 Movies.propTypes = {
   movieData: PropTypes.array,
-  // loading: PropTypes.bool,
+  loading: PropTypes.bool,
 };
