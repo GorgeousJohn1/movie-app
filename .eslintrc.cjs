@@ -24,5 +24,6 @@ module.exports = {
       'warn',
       { allowConstantExport: true },
     ],
+    'react/forbid-prop-types': 0,
   },
 };

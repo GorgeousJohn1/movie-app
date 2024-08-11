@@ -11,7 +11,11 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@ant-design/icons": "^5.4.0",
+    "antd": "^5.20.0",
+    "date-fns": "^3.6.0",
     "eslint-config-airbnb": "^19.0.4",
+    "lodash.debounce": "^4.0.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
