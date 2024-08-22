@@ -40,8 +40,11 @@ export default function MovieCard({
           src={
             <Image
               preview
-              src={`https://image.tmdb.org/t/p/w500/${poster}`}
-              fallback="../public/fallback.jpg"
+              src={
+                poster
+                  ? `https://image.tmdb.org/t/p/w500/${poster}`
+                  : '../public/fallback.jpg'
+              }
             />
           }
         />
