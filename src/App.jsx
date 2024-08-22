@@ -1,6 +1,6 @@
 import { Component } from 'react';
-import { Layout, Flex, Input, Pagination, Alert } from 'antd';
-// import { SearchOutlined } from '@ant-design/icons';
+import PropTypes from 'prop-types';
+import { Layout, Flex, Input, Pagination, Alert, Tabs } from 'antd';
 import debounce from 'lodash.debounce';
 import Movies from './components/Movies';
 import FetchMovies from './api/fetchMovies';
@@ -18,12 +18,27 @@ const contentStyle = {
 export default class App extends Component {
   fetchService = new FetchMovies();
 
+  tabs = [
+    {
+      key: '1',
+      label: 'Search',
+      children: '',
+    },
+    {
+      key: '2',
+      label: 'Rated',
+      children: '',
+    },
+  ];
+
   state = {
     movieData: {},
     loading: true,
     error: false,
     page: 1,
     query: '',
+    mode: 'search',
+    errorMessage: '',
   };
 
   componentDidMount() {
@@ -32,20 +47,58 @@ export default class App extends Component {
   }
 
   componentDidUpdate(prevProps, prevState) {
-    const { page: newPage, query: newQuery } = this.state;
-    const { page: prevPage, query: prevQuery } = prevState;
+    const { page: newPage, query: newQuery, mode: newMode } = this.state;
+    const { page: prevPage, query: prevQuery, mode: prevMode } = prevState;
+    const { guestID } = this.props;
+
+    if (prevMode === 'search' && newMode === 'rated') {
+      this.setState({ loading: true });
+      this.getRatedMovies(guestID);
+    }
+
+    if (prevMode === 'rated' && newMode === 'search') {
+      this.setState({ error: false });
+      this.setState({ loading: true, page: 1, query: '' });
+      this.trendMovies(1);
+    }
 
     if (
-      (prevQuery !== newQuery && newQuery.trim()) ||
-      (newQuery.trim() && prevPage !== newPage)
+      (newMode === 'search' && !prevQuery && newQuery.trim()) ||
+      (newMode === 'search' &&
+        prevQuery &&
+        newQuery &&
+        prevQuery !== newQuery.trim())
     ) {
+      this.setState({ loading: true });
+      this.searchMovies(newQuery, 1);
+    }
+
+    if (
+      newMode === 'search' &&
+      prevQuery === newQuery &&
+      prevPage !== newPage
+    ) {
+      this.setState({ loading: true });
       this.searchMovies(newQuery, newPage);
     }
 
     if (
-      (!newQuery.trim() && prevPage !== newPage) ||
-      (prevQuery !== newQuery && !newQuery.trim())
+      newMode === 'search' &&
+      prevQuery !== newQuery &&
+      !newQuery.trim() &&
+      prevPage === newPage
     ) {
+      this.setState({ loading: true, page: 1 });
+      this.trendMovies(1);
+    }
+
+    if (
+      newMode === 'search' &&
+      !newQuery.trim() &&
+      newQuery === prevQuery &&
+      prevPage !== newPage
+    ) {
+      this.setState({ loading: true });
       this.trendMovies(newPage);
     }
   }
@@ -54,30 +107,35 @@ export default class App extends Component {
     this.setState({ query: e.target.value });
   };
 
-  pageChanger = (newPage) => {
-    this.setState({ page: newPage });
+  onTabChange = (key) => {
+    if (key === '1') this.setState({ mode: 'search' });
+    if (key === '2') this.setState({ mode: 'rated' });
   };
 
-  trendMovies(page) {
+  pageChanger = (newPage) => {
+    this.setState({ page: newPage, loading: true });
+  };
+
+  trendMovies = (page = 1) => {
     this.fetchService
       .fetchTrendMovies(page)
       .then((movieData) => {
         this.setState({
           loading: false,
           movieData,
-
           page,
         });
       })
       .catch((err) => {
         this.setState({
           loading: false,
-          error: err,
+          error: true,
+          errorMessage: err.message,
         });
       });
-  }
+  };
 
-  searchMovies(query, page = 1) {
+  searchMovies = (query, page = 1) => {
     this.fetchService
       .fetchSearchMovies(query, page)
       .then((movieData) => {
@@ -90,42 +148,71 @@ export default class App extends Component {
       .catch((err) => {
         this.setState({
           loading: false,
-          error: err,
+          error: true,
+          errorMessage: err.message,
         });
       });
-  }
+  };
+
+  getRatedMovies = (guestID, page = 1) => {
+    this.fetchService
+      .getRatedMovies(guestID, page)
+      .then((movieData) => {
+        this.setState({
+          loading: false,
+          movieData,
+          page,
+        });
+      })
+      .catch(() => {
+        this.setState({
+          loading: false,
+          movieData: [],
+        });
+      });
+  };
 
   render() {
-    const { movieData, loading, error, page } = this.state;
+    const { movieData, loading, error, page, mode, errorMessage } = this.state;
 
     return (
       <Layout className="app">
         <Flex justify="center">
           <Content style={contentStyle}>
             <Flex justify="center" vertical>
-              <Input
-                placeholder="Type to search..."
-                style={{ marginBottom: '3rem' }}
-                onChange={debounce(this.handleSearch, 350)}
+              <Tabs
+                defaultActiveKey="1"
+                items={this.tabs}
+                onChange={this.onTabChange}
+                centered
+                destroyInactiveTabPane
               />
-
+              {mode === 'search' && (
+                <Input
+                  placeholder="Type to search..."
+                  style={{ marginBottom: '3rem' }}
+                  onChange={debounce(this.handleSearch, 350)}
+                />
+              )}
               {error ? (
                 <Alert
                   type="error"
                   message="Error"
-                  description={error.message}
+                  description={errorMessage.message}
                   style={{ alignSelf: 'center', width: '50%' }}
                 />
               ) : (
                 <>
                   <Movies movieData={movieData.results} loading={loading} />
-                  <Pagination
-                    align="center"
-                    defaultCurrent={page}
-                    total={movieData.total_pages}
-                    onChange={this.pageChanger}
-                    showSizeChanger={false}
-                  />
+                  {mode === 'search' && (
+                    <Pagination
+                      align="center"
+                      current={page}
+                      total={movieData.total_pages}
+                      onChange={this.pageChanger}
+                      showSizeChanger={false}
+                    />
+                  )}
                 </>
               )}
             </Flex>
@@ -135,3 +222,11 @@ export default class App extends Component {
     );
   }
 }
+
+App.defaultProps = {
+  guestID: null,
+};
+
+App.propTypes = {
+  guestID: PropTypes.string,
+};
